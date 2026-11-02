@@ -1,0 +1,450 @@
+import './style.css'
+let THREE = null
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import Lenis from 'lenis'
+
+gsap.registerPlugin(ScrollTrigger)
+
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const body = document.body
+body.classList.add('is-loading')
+
+/* ---------- Smooth scrolling ---------- */
+let lenis = null
+if (!reduceMotion) {
+  lenis = new Lenis({ duration: 1.15, smoothWheel: true })
+  lenis.on('scroll', ScrollTrigger.update)
+  gsap.ticker.add((time) => lenis.raf(time * 1000))
+  gsap.ticker.lagSmoothing(0)
+  lenis.stop() // locked until the loader finishes
+}
+
+/* ---------- Header + mobile menu ---------- */
+const header = document.getElementById('siteHeader')
+const nav = document.getElementById('nav')
+const navToggle = document.getElementById('navToggle')
+
+function setMenu(open) {
+  nav.classList.toggle('is-open', open)
+  navToggle.setAttribute('aria-expanded', String(open))
+  navToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu')
+  if (open) {
+    lenis?.stop()
+    body.style.overflow = 'hidden'
+  } else {
+    body.style.overflow = ''
+    if (!body.classList.contains('is-loading')) lenis?.start()
+  }
+}
+
+navToggle.addEventListener('click', () => {
+  setMenu(navToggle.getAttribute('aria-expanded') !== 'true')
+})
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') setMenu(false)
+})
+
+function updateHeader() {
+  header.classList.toggle('is-solid', window.scrollY > 40)
+}
+window.addEventListener('scroll', updateHeader, { passive: true })
+updateHeader()
+
+/* ---------- Anchor links ---------- */
+document.querySelectorAll('a[href^="#"]').forEach((link) => {
+  link.addEventListener('click', (e) => {
+    const id = link.getAttribute('href')
+    if (!id || id.length < 2) return
+    const target = document.querySelector(id)
+    if (!target) return
+    e.preventDefault()
+    setMenu(false)
+    const offset = id === '#top' ? 0 : -72
+    if (lenis) {
+      lenis.scrollTo(target, { offset, duration: 1.4 })
+    } else {
+      window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY + offset })
+    }
+  })
+})
+
+/* ---------- Hero intro animation ---------- */
+function prepareIntro() {
+  if (reduceMotion) return
+  gsap.set('.line__inner', { yPercent: 115 })
+  gsap.set('.hero__eyebrow, .hero__text, .hero__actions', { opacity: 0, y: 24 })
+  gsap.set('.hero__scroll', { opacity: 0 })
+}
+
+function playIntro() {
+  if (reduceMotion) return
+  const tl = gsap.timeline({ defaults: { ease: 'power4.out' } })
+  tl.to('.hero__eyebrow', { opacity: 1, y: 0, duration: 0.9 })
+    .to('.line__inner', { yPercent: 0, duration: 1.3, stagger: 0.18 }, '-=0.6')
+    .to('.hero__text', { opacity: 1, y: 0, duration: 1 }, '-=0.8')
+    .to('.hero__actions', { opacity: 1, y: 0, duration: 1 }, '-=0.8')
+    .to('.hero__scroll', { opacity: 1, duration: 1 }, '-=0.4')
+}
+
+function setupHeroScroll() {
+  if (reduceMotion) return
+  gsap.to('.hero__content', {
+    yPercent: -18,
+    opacity: 0,
+    ease: 'none',
+    scrollTrigger: {
+      trigger: '.hero',
+      start: 'top top',
+      end: 'bottom top',
+      scrub: true,
+    },
+  })
+}
+
+/* ---------- Loader ---------- */
+const loader = document.getElementById('loader')
+const loaderBar = document.getElementById('loaderBar')
+
+prepareIntro()
+
+function finishLoader() {
+  gsap.to(loader, {
+    opacity: 0,
+    duration: reduceMotion ? 0.01 : 0.7,
+    ease: 'power2.inOut',
+    onComplete: () => {
+      loader.remove()
+      body.classList.remove('is-loading')
+      lenis?.start()
+      playIntro()
+    },
+  })
+}
+
+const pageLoaded = new Promise((resolve) => {
+  if (document.readyState === 'complete') resolve()
+  else window.addEventListener('load', resolve, { once: true })
+})
+const minimumTime = new Promise((resolve) => setTimeout(resolve, reduceMotion ? 0 : 1300))
+
+gsap.to(loaderBar, { scaleX: 0.85, duration: reduceMotion ? 0.01 : 1.2, ease: 'power2.out' })
+Promise.all([pageLoaded, minimumTime]).then(() => {
+  gsap.to(loaderBar, { scaleX: 1, duration: 0.25, onComplete: finishLoader })
+})
+
+/* ---------- 3D hero: drifting embers ---------- */
+function makeGlowTexture() {
+  const size = 64
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const ctx = c.getContext('2d')
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+  g.addColorStop(0, 'rgba(255,255,255,1)')
+  g.addColorStop(0.35, 'rgba(255,255,255,0.45)')
+  g.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, size, size)
+  return new THREE.CanvasTexture(c)
+}
+
+async function initHero3D() {
+  THREE = await import('three')
+  const canvas = document.getElementById('heroCanvas')
+  const hero = document.getElementById('top')
+  if (!canvas || !hero) return
+
+  let renderer
+  try {
+    renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: false,
+      powerPreference: 'low-power',
+    })
+  } catch (err) {
+    return // no WebGL: the CSS background still looks fine
+  }
+
+  const isMobile = window.matchMedia('(max-width: 820px)').matches
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.25 : 1.75))
+  renderer.setClearColor(0x000000, 0)
+
+  const scene = new THREE.Scene()
+  const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100)
+  camera.position.z = 8
+
+  const COUNT = isMobile ? 220 : 520
+  const positions = new Float32Array(COUNT * 3)
+  const colors = new Float32Array(COUNT * 3)
+  const speeds = new Float32Array(COUNT)
+  const phases = new Float32Array(COUNT)
+  const baseX = new Float32Array(COUNT)
+
+  const palette = [new THREE.Color('#d9a441'), new THREE.Color('#e8793a'), new THREE.Color('#f5ead6')]
+
+  for (let i = 0; i < COUNT; i++) {
+    baseX[i] = (Math.random() - 0.5) * 18
+    positions[i * 3] = baseX[i]
+    positions[i * 3 + 1] = (Math.random() - 0.5) * 12
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 8
+    speeds[i] = 0.25 + Math.random() * 0.55
+    phases[i] = Math.random() * Math.PI * 2
+    const c = palette[Math.floor(Math.random() * palette.length)]
+    colors[i * 3] = c.r
+    colors[i * 3 + 1] = c.g
+    colors[i * 3 + 2] = c.b
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+
+  const material = new THREE.PointsMaterial({
+    size: isMobile ? 0.16 : 0.13,
+    map: makeGlowTexture(),
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  })
+
+  const points = new THREE.Points(geometry, material)
+  scene.add(points)
+
+  function resize() {
+    const w = hero.clientWidth
+    const h = hero.clientHeight
+    renderer.setSize(w, h, false)
+    camera.aspect = w / h
+    camera.updateProjectionMatrix()
+    if (reduceMotion) renderer.render(scene, camera)
+  }
+  resize()
+  window.addEventListener('resize', resize)
+
+  if (reduceMotion) {
+    renderer.render(scene, camera)
+    return
+  }
+
+  let scrollProgress = 0
+  ScrollTrigger.create({
+    trigger: hero,
+    start: 'top top',
+    end: 'bottom top',
+    onUpdate: (self) => {
+      scrollProgress = self.progress
+    },
+  })
+
+  const pointer = { x: 0, y: 0 }
+  hero.addEventListener(
+    'pointermove',
+    (e) => {
+      pointer.x = (e.clientX / window.innerWidth - 0.5) * 2
+      pointer.y = (e.clientY / window.innerHeight - 0.5) * 2
+    },
+    { passive: true }
+  )
+
+  let visible = true
+  let running = false
+  let last = performance.now()
+  let elapsed = 0
+
+  function frame(now) {
+    if (!running) return
+    const dt = Math.min((now - last) / 1000, 0.05)
+    last = now
+    elapsed += dt
+
+    const pos = geometry.attributes.position.array
+    for (let i = 0; i < COUNT; i++) {
+      let y = pos[i * 3 + 1] + speeds[i] * dt
+      if (y > 6) y = -6
+      pos[i * 3 + 1] = y
+      pos[i * 3] = baseX[i] + Math.sin(elapsed * 0.6 + phases[i]) * 0.35
+    }
+    geometry.attributes.position.needsUpdate = true
+
+    points.rotation.y = scrollProgress * 0.9
+    camera.position.z = 8 - scrollProgress * 2.5
+    camera.position.x += (pointer.x * 0.5 - camera.position.x) * 0.04
+    camera.position.y += (-pointer.y * 0.3 - camera.position.y) * 0.04
+    camera.lookAt(0, 0, 0)
+
+    renderer.render(scene, camera)
+    requestAnimationFrame(frame)
+  }
+
+  function start() {
+    if (running || !visible || document.hidden) return
+    running = true
+    last = performance.now()
+    requestAnimationFrame(frame)
+  }
+  function stop() {
+    running = false
+  }
+
+  new IntersectionObserver(
+    ([entry]) => {
+      visible = entry.isIntersecting
+      visible ? start() : stop()
+    },
+    { threshold: 0 }
+  ).observe(hero)
+
+  document.addEventListener('visibilitychange', () => {
+    document.hidden ? stop() : start()
+  })
+
+  start()
+}
+
+initHero3D()
+setupHeroScroll()
+
+/* ---------- Scroll reveals ---------- */
+function setupReveals() {
+  if (reduceMotion) return
+  const items = gsap.utils.toArray('[data-reveal]')
+  items.forEach((el) => {
+    const inPillars = el.closest('.story__pillars')
+    const delay = inPillars ? Array.from(el.parentElement.children).indexOf(el) * 0.12 : 0
+    gsap.from(el, {
+      opacity: 0,
+      y: 40,
+      duration: 1,
+      delay,
+      ease: 'power3.out',
+      scrollTrigger: {
+        trigger: el,
+        start: 'top 88%',
+        once: true,
+      },
+    })
+  })
+}
+
+setupReveals()
+
+/* ---------- Menu ---------- */
+import { categories, IS_DEMO_MENU, WHATSAPP_NUMBER, WHATSAPP_GREETING } from './menu.js'
+
+function waLink(text) {
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+
+function dishCard(item, icon) {
+  const hasOptions = Array.isArray(item.options) && item.options.length > 0
+  const prices = hasOptions
+    ? item.options.map((o) => `<span class="dish__price"><small>${escapeHtml(o.label)}</small>₹${o.price}</span>`).join('')
+    : `<span class="dish__price">₹${item.price}</span>`
+  const sizes = hasOptions ? ' (' + item.options.map((o) => o.label).join(' / ') + ': please confirm size)' : ''
+  const message = `${WHATSAPP_GREETING}\n1 x ${item.name}${sizes}`
+  return `
+    <article class="dish">
+      <div class="dish__head">
+        <span class="dish__icon">${icon}</span>
+        ${item.tag ? `<span class="dish__tag">${escapeHtml(item.tag)}</span>` : ''}
+      </div>
+      <h3 class="dish__name">${escapeHtml(item.name)}</h3>
+      <p class="dish__desc">${escapeHtml(item.desc || '')}</p>
+      <div class="dish__prices">${prices}</div>
+      <a class="dish__order" href="${waLink(message)}" target="_blank" rel="noopener">Order on WhatsApp</a>
+    </article>`
+}
+
+function setupMenu() {
+  const tabs = document.getElementById('menuTabs')
+  const grid = document.getElementById('menuGrid')
+  const orderAll = document.getElementById('menuOrderAll')
+  const demoNote = document.getElementById('menuDemoNote')
+  if (!tabs || !grid) return
+
+  if (demoNote) demoNote.hidden = !IS_DEMO_MENU
+  if (orderAll) orderAll.href = waLink(`${WHATSAPP_GREETING}\n`)
+
+  tabs.innerHTML = categories
+    .map(
+      (c, i) =>
+        `<button class="menu__tab" role="tab" type="button" data-cat="${c.id}" aria-selected="${i === 0}">${c.icon}<span>${escapeHtml(c.label)}</span></button>`
+    )
+    .join('')
+
+  function show(id, animate) {
+    const cat = categories.find((c) => c.id === id) || categories[0]
+    tabs.querySelectorAll('.menu__tab').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.cat === cat.id)))
+    grid.innerHTML = cat.items.map((item) => dishCard(item, cat.icon)).join('')
+    if (animate && !reduceMotion) {
+      gsap.from(grid.children, { opacity: 0, y: 24, duration: 0.6, stagger: 0.06, ease: 'power3.out', clearProps: 'all' })
+    }
+    ScrollTrigger.refresh()
+  }
+
+  tabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('.menu__tab')
+    if (btn) show(btn.dataset.cat, true)
+  })
+
+  show(categories[0].id, false)
+}
+
+setupMenu()
+
+/* ---------- Visit + Contact (from info.js) ---------- */
+import { info } from './info.js'
+
+function setupVisitAndContact() {
+  const address = document.getElementById('visitAddress')
+  const hours = document.getElementById('visitHours')
+  const directions = document.getElementById('visitDirections')
+  const mapFrame = document.getElementById('mapFrame')
+  const contactWa = document.getElementById('contactWhatsapp')
+  const contactCall = document.getElementById('contactCall')
+  const contactLinks = document.getElementById('contactLinks')
+
+  const waUrl = `https://wa.me/${info.whatsapp}?text=${encodeURIComponent('Hello KGN Mandi House, I would like to order:\n')}`
+
+  if (address) {
+    address.innerHTML = `<strong>${escapeHtml(info.name)}</strong><br>` + info.addressLines.map(escapeHtml).join('<br>')
+  }
+
+  if (hours) {
+    if (Array.isArray(info.hours) && info.hours.length) {
+      hours.innerHTML =
+        '<dl>' +
+        info.hours.map((h) => `<div><dt>${escapeHtml(h.days)}</dt><dd>${escapeHtml(h.time)}</dd></div>`).join('') +
+        '</dl>'
+    } else {
+      hours.innerHTML = `<p>Opening hours: <a href="${waUrl}" target="_blank" rel="noopener" style="color:var(--gold)">message us on WhatsApp</a> to confirm.</p>`
+    }
+  }
+
+  const q = encodeURIComponent(info.mapsQuery)
+  if (mapFrame) mapFrame.src = `https://www.google.com/maps?q=${q}&output=embed`
+  if (directions) directions.href = info.mapsLink || `https://www.google.com/maps/search/?api=1&query=${q}`
+
+  if (contactWa) contactWa.href = waUrl
+  if (contactCall) contactCall.href = `tel:${info.phoneTel}`
+
+  if (contactLinks) {
+    const links = []
+    if (info.instagram) links.push(['Instagram', info.instagram])
+    if (info.facebook) links.push(['Facebook', info.facebook])
+    if (info.email) links.push([info.email, `mailto:${info.email}`])
+    contactLinks.innerHTML = links
+      .map(([label, href]) => `<li><a href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(label)}</a></li>`)
+      .join('')
+    contactLinks.hidden = links.length === 0
+  }
+}
+
+setupVisitAndContact()

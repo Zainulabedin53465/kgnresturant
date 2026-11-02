@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>KGN Mandi House | Authentic Mandi Restaurant in Ghatikia, Bhubaneswar</title>
+    <meta
+      name="description"
+      content="KGN Mandi House in Ghatikia, Bhubaneswar serves aromatic Mandi rice with tender grilled chicken, plus Chinese and Indian dishes. View the menu and order on WhatsApp."
+    />
+    <meta name="theme-color" content="#0b0806" />
+    <link rel="canonical" href="/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <meta property="og:type" content="restaurant.restaurant" />
+    <meta property="og:title" content="KGN Mandi House | Ghatikia, Bhubaneswar" />
+    <meta
+      property="og:description"
+      content="Aromatic Mandi rice, grilled chicken, Chinese and Indian dishes in Ghatikia, Bhubaneswar."
+    />
+    <meta property="og:locale" content="en_IN" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <div class="loader" id="loader" aria-hidden="true">
+      <div class="loader__inner">
+        <span class="loader__kicker">Welcome to</span>
+        <h1 class="loader__title">KGN Mandi House</h1>
+        <div class="loader__bar"><span id="loaderBar"></span></div>
+      </div>
+    </div>
+
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header" id="siteHeader">
+      <a class="brand" href="#top" aria-label="KGN Mandi House home">KGN <span>Mandi House</span></a>
+      <nav class="nav" id="nav" aria-label="Main navigation">
+        <a href="#story">Story</a>
+        <a href="#menu">Menu</a>
+        <a href="#gallery">Gallery</a>
+        <a href="#visit">Visit</a>
+        <a href="#contact">Contact</a>
+      </nav>
+      <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="nav" aria-label="Open menu">
+        <span></span><span></span>
+      </button>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <canvas class="hero__canvas" id="heroCanvas" aria-hidden="true"></canvas>
+        <div class="hero__content">
+          <p class="hero__eyebrow">Ghatikia, Bhubaneswar</p>
+          <h2 class="hero__title">
+            <span class="line"><span class="line__inner">Slow-cooked rice.</span></span>
+            <span class="line"><span class="line__inner">Fire-grilled chicken.</span></span>
+          </h2>
+          <p class="hero__text">
+            The royal Arabian feast of Mandi, served the KGN way.
+          </p>
+          <div class="hero__actions">
+            <a class="btn btn--gold" href="#menu">Explore the Menu</a>
+          </div>
+        </div>
+        <div class="hero__scroll" aria-hidden="true"><span></span>Scroll</div>
+      </section>
+      <section class="story" id="story">
+        <div class="story__inner">
+          <p class="eyebrow" data-reveal>The Mandi Tradition</p>
+          <h2 class="section-title" data-reveal>A feast made to be shared</h2>
+          <div class="story__text">
+            <p data-reveal>
+              Mandi is a celebrated dish of Arabian origin: long-grain rice, gently spiced and
+              cooked slowly with tender meat until every grain carries the flavour. It is
+              traditionally served on one large platter, made for the whole table to gather around.
+            </p>
+            <p data-reveal>
+              KGN Mandi House brings that experience to Ghatikia, Bhubaneswar. Come with family
+              and friends, and share a platter of Mandi.
+            </p>
+          </div>
+          <ul class="story__pillars">
+            <li data-reveal>
+              <h3>Fragrant Rice</h3>
+              <p>Aromatic rice, slow-cooked and layered with warm spices.</p>
+            </li>
+            <li data-reveal>
+              <h3>Tender Chicken</h3>
+              <p>Grilled chicken that comes off the bone with ease.</p>
+            </li>
+            <li data-reveal>
+              <h3>Made to Share</h3>
+              <p>Big platters and good company, the way Mandi is meant to be enjoyed.</p>
+            </li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
